@@ -58,7 +58,7 @@
 }
 
 :root {
-  --background: oklch(0.97 0.005 240);
+  --background: oklch(0.985 0.004 240);
   --foreground: oklch(0.21 0.03 250);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.21 0.03 250);
@@ -152,9 +152,40 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    background-image:
+      radial-gradient(circle at top left, rgb(16 24 40 / 0.06), transparent 28%),
+      radial-gradient(circle at top right, rgb(14 165 233 / 0.08), transparent 24%),
+      linear-gradient(to bottom, rgb(255 255 255 / 0.4), transparent 16%);
+    background-attachment: fixed;
   }
   html {
     @apply font-sans;
+  }
+
+  ::selection {
+    background: color-mix(in oklch, var(--primary) 18%, transparent);
+    color: var(--foreground);
+  }
+
+  ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in oklch, var(--primary) 28%, white);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklch, var(--primary) 38%, white);
+    background-clip: content-box;
   }
 }

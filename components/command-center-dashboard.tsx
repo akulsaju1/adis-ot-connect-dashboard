@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { getAllDismissals, getDismissalStats, scanNfcAtGate } from '@/app/actions/dismissal'
 import { generateCSV, downloadCSV } from '@/lib/csv-utils'
-import { AlertCircle, Wifi, WifiOff, Radio, CheckCircle2, Clock, Users, TrendingUp, Download } from 'lucide-react'
+import { AlertCircle, Wifi, WifiOff, Radio, CheckCircle2, Clock, Users, TrendingUp, Download, Activity, ScanFace } from 'lucide-react'
 
 interface Dismissal {
   id: number
@@ -172,69 +172,84 @@ export function CommandCenterDashboard() {
   }
 
   return (
-    <div className="flex-1 overflow-auto p-8 space-y-8">
-      {/* Header */}
-      <div>
-        <h2 className="text-4xl font-bold text-primary mb-2">Command Center</h2>
-        <p className="text-muted-foreground">Real-time student dismissal monitoring and NFC gate tracking</p>
-      </div>
-
-      {/* NFC Status Card */}
-      <div className={`rounded-lg border-2 p-6 ${nfcEnabled ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {nfcEnabled ? <Wifi className="w-6 h-6 text-emerald-600 animate-pulse" /> : <WifiOff className="w-6 h-6 text-amber-600" />}
-            <div>
-              <p className="font-semibold text-lg">{nfcEnabled ? 'NFC Reader Active' : 'NFC Initializing'}</p>
-              <p className="text-sm text-muted-foreground">{nfcStatus}</p>
+    <div className="flex-1 overflow-auto p-6 sm:p-8 space-y-6 lg:space-y-8">
+      <div className="rounded-[2rem] border border-border/60 bg-card/80 p-6 shadow-sm backdrop-blur">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.28em] text-primary">
+              <Activity className="h-3.5 w-3.5" /> Live operations
             </div>
+            <h2 className="mt-4 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">Command Center</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+              Real-time student dismissal monitoring and NFC gate tracking.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-border/60 bg-background/80 px-4 py-3 text-sm text-muted-foreground">
+            <p className="font-medium text-foreground">Operational status</p>
+            <p className="mt-1">Updated every 5 seconds</p>
           </div>
         </div>
       </div>
 
-      {/* Live Metrics Grid */}
+      <div className={`rounded-[1.5rem] border p-6 shadow-sm ${nfcEnabled ? 'border-emerald-200 bg-emerald-50/70' : 'border-amber-200 bg-amber-50/70'}`}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <div className={`grid h-12 w-12 place-items-center rounded-2xl ${nfcEnabled ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+              {nfcEnabled ? <Wifi className="h-5 w-5 animate-pulse" /> : <WifiOff className="h-5 w-5" />}
+            </div>
+            <div>
+              <p className="text-lg font-semibold text-foreground">{nfcEnabled ? 'NFC Reader Active' : 'NFC Initializing'}</p>
+              <p className="text-sm text-muted-foreground">{nfcStatus}</p>
+            </div>
+          </div>
+          <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background px-3 py-1 text-xs font-medium text-muted-foreground">
+            <ScanFace className="h-4 w-4 text-primary" />
+            Ready for scans
+          </div>
+        </div>
+      </div>
+
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-          <div className="bg-white rounded-lg border border-primary/10 p-4 shadow-sm">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
+          <div className="rounded-2xl border border-border/60 bg-card p-4 shadow-sm">
             <p className="text-sm font-medium text-muted-foreground">Total</p>
-            <p className="text-3xl font-bold text-primary mt-2">{stats.total}</p>
+            <p className="mt-2 text-3xl font-semibold text-foreground">{stats.total}</p>
           </div>
-          <div className="bg-white rounded-lg border border-amber-200 p-4 shadow-sm">
+          <div className="rounded-2xl border border-amber-200/70 bg-white p-4 shadow-sm">
             <p className="text-sm font-medium text-amber-900">Waiting</p>
-            <p className="text-3xl font-bold text-amber-600 mt-2">{stats.waiting}</p>
+            <p className="mt-2 text-3xl font-semibold text-amber-600">{stats.waiting}</p>
           </div>
-          <div className="bg-white rounded-lg border border-sky-200 p-4 shadow-sm">
+          <div className="rounded-2xl border border-sky-200/70 bg-white p-4 shadow-sm">
             <p className="text-sm font-medium text-sky-900">At Gate</p>
-            <p className="text-3xl font-bold text-sky-600 mt-2">{stats.at_gate}</p>
+            <p className="mt-2 text-3xl font-semibold text-sky-600">{stats.at_gate}</p>
           </div>
-          <div className="bg-white rounded-lg border border-blue-200 p-4 shadow-sm">
+          <div className="rounded-2xl border border-blue-200/70 bg-white p-4 shadow-sm">
             <p className="text-sm font-medium text-blue-900">In Queue</p>
-            <p className="text-3xl font-bold text-blue-600 mt-2">{stats.in_queue}</p>
+            <p className="mt-2 text-3xl font-semibold text-blue-600">{stats.in_queue}</p>
           </div>
-          <div className="bg-white rounded-lg border border-purple-200 p-4 shadow-sm">
+          <div className="rounded-2xl border border-purple-200/70 bg-white p-4 shadow-sm">
             <p className="text-sm font-medium text-purple-900">Parent Arrived</p>
-            <p className="text-3xl font-bold text-purple-600 mt-2">{stats.parent_arrived}</p>
+            <p className="mt-2 text-3xl font-semibold text-purple-600">{stats.parent_arrived}</p>
           </div>
-          <div className="bg-white rounded-lg border border-emerald-200 p-4 shadow-sm">
+          <div className="rounded-2xl border border-emerald-200/70 bg-white p-4 shadow-sm">
             <p className="text-sm font-medium text-emerald-900">Completed</p>
-            <p className="text-3xl font-bold text-emerald-600 mt-2">{stats.completed}</p>
+            <p className="mt-2 text-3xl font-semibold text-emerald-600">{stats.completed}</p>
           </div>
         </div>
       )}
 
-      {/* Performance Metrics */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-lg border border-emerald-200 p-6 shadow-sm">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="rounded-[1.5rem] border border-emerald-200/70 bg-gradient-to-br from-emerald-50 to-white p-6 shadow-sm">
             <p className="text-sm font-medium text-emerald-900">Completion Rate</p>
-            <p className="text-4xl font-bold text-emerald-600 mt-2">
+            <p className="mt-2 text-4xl font-semibold text-emerald-600">
               {stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0}%
             </p>
             <p className="text-xs text-emerald-700 mt-2">{stats.completed} of {stats.total} completed</p>
           </div>
-          <div className="bg-gradient-to-br from-sky-50 to-sky-100 rounded-lg border border-sky-200 p-6 shadow-sm">
+          <div className="rounded-[1.5rem] border border-sky-200/70 bg-gradient-to-br from-sky-50 to-white p-6 shadow-sm">
             <p className="text-sm font-medium text-sky-900">Average Processing Time</p>
-            <p className="text-4xl font-bold text-sky-600 mt-2">
+            <p className="mt-2 text-4xl font-semibold text-sky-600">
               {dismissals.length > 0
                 ? Math.round(
                     dismissals
@@ -249,9 +264,9 @@ export function CommandCenterDashboard() {
             </p>
             <p className="text-xs text-sky-700 mt-2">from scan to dismissal</p>
           </div>
-          <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg border border-amber-200 p-6 shadow-sm">
+            <div className="rounded-[1.5rem] border border-amber-200/70 bg-gradient-to-br from-amber-50 to-white p-6 shadow-sm">
             <p className="text-sm font-medium text-amber-900">Pending Actions</p>
-            <p className="text-4xl font-bold text-amber-600 mt-2">
+              <p className="mt-2 text-4xl font-semibold text-amber-600">
               {stats.waiting + stats.at_gate + stats.in_queue}
             </p>
             <p className="text-xs text-amber-700 mt-2">students waiting or in queue</p>
@@ -259,17 +274,16 @@ export function CommandCenterDashboard() {
         </div>
       )}
 
-      {/* Compliance Log */}
-      <div className="bg-white rounded-lg border border-primary/10 shadow-sm">
-        <div className="p-6 border-b border-primary/5 flex items-center justify-between">
+        <div className="overflow-hidden rounded-[1.75rem] border border-border/60 bg-card shadow-sm">
+          <div className="flex items-center justify-between gap-4 border-b border-border/60 p-6">
           <div>
-            <h3 className="text-xl font-bold text-primary">Live Dismissal Log</h3>
-            <p className="text-sm text-muted-foreground mt-1">Recent scanning and dismissal events</p>
+              <h3 className="text-xl font-semibold text-foreground">Live Dismissal Log</h3>
+              <p className="mt-1 text-sm text-muted-foreground">Recent scanning and dismissal events</p>
           </div>
           <button
             onClick={handleExportDismissals}
             disabled={dismissals.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 font-semibold text-sm disabled:opacity-50 transition"
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Download className="w-4 h-4" />
             Export CSV
@@ -278,13 +292,13 @@ export function CommandCenterDashboard() {
 
         <div className="overflow-x-auto">
           {loading ? (
-            <div className="p-8 text-center text-muted-foreground">Loading dismissal data...</div>
+              <div className="p-8 text-center text-muted-foreground">Loading dismissal data...</div>
           ) : dismissals.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground">No dismissals yet</div>
           ) : (
             <table className="w-full">
-              <thead className="bg-primary/5 border-b border-primary/10">
-                <tr className="text-left text-sm font-semibold text-primary">
+                <thead className="bg-muted/50 border-b border-border/60">
+                  <tr className="text-left text-sm font-medium text-foreground">
                   <th className="px-6 py-3">Student Name</th>
                   <th className="px-6 py-3">Class</th>
                   <th className="px-6 py-3">Block</th>
@@ -296,7 +310,7 @@ export function CommandCenterDashboard() {
               </thead>
               <tbody className="divide-y divide-primary/5">
                 {dismissals.slice(0, 20).map((dismissal) => (
-                  <tr key={dismissal.id} className="hover:bg-primary/2 transition-colors">
+                  <tr key={dismissal.id} className="hover:bg-muted/40 transition-colors">
                     <td className="px-6 py-3 font-medium">{dismissal.studentName}</td>
                     <td className="px-6 py-3 text-sm text-muted-foreground">{dismissal.class}</td>
                     <td className="px-6 py-3 text-sm">

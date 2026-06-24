@@ -25,8 +25,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className="bg-background">
-      <body className={`${geist.className} text-foreground antialiased`}>
+    <html lang="en" className="bg-background scroll-smooth">
+      <body className={`${geist.className} min-h-screen text-foreground antialiased`}>
         <AppProviderWrapper>
           {children}
         </AppProviderWrapper>
