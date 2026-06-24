@@ -13,6 +13,7 @@ interface Dismissal {
   status: string
   gateScanTime: Date | null
   parentName?: string
+  event?: 'student_at_gate' | 'parent_arrived' | 'student_left'
 }
 
 interface SiblingGroup {
@@ -121,7 +122,13 @@ export function GateEntranceScanner() {
   const handleNfcScan = async (nfcCode: string) => {
     try {
       const result = await scanNfcAtGate(nfcCode)
-      setMessage(`✓ Student at gate: ${result.studentName} (${result.class})`)
+      if (result.event === 'parent_arrived') {
+        setMessage(`✓ Parent arrived: ${result.studentName} (${result.class})`)
+      } else if (result.event === 'student_left') {
+        setMessage(`✓ Student left campus: ${result.studentName} (${result.class})`)
+      } else {
+        setMessage(`✓ Student at gate: ${result.studentName} (${result.class})`)
+      }
       setMessageType('success')
       
       // Reload recent scans
@@ -187,7 +194,7 @@ export function GateEntranceScanner() {
             </div>
             <div>
               <h3 className="text-lg font-semibold text-foreground">Manual NFC Code Entry</h3>
-              <p className="text-sm text-muted-foreground">Fallback input for assisted scanning.</p>
+              <p className="text-sm text-muted-foreground">Student tap: arrive. Next tap: parent arrived. Next tap: student left.</p>
             </div>
           </div>
 

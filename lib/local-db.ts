@@ -5,9 +5,12 @@ const path = requireFn('path') as any
 const processEnv = (globalThis as any).process?.env || {}
 const defaultDataDir = path.join((globalThis as any).process.cwd(), '.data')
 const vercelFallbackDataDir = path.join('/tmp', '.data')
+const os = requireFn('os') as any
+const tmpFallbackDataDir = path.join(os.tmpdir(), '.adis-ot-connect-dashboard', '.data')
 
-let DATA_DIR =
-  processEnv.LOCAL_DB_DIR?.trim() || (processEnv.VERCEL ? vercelFallbackDataDir : defaultDataDir)
+// Prefer an explicit override, otherwise start with project-local dir.
+// We'll attempt writable fallbacks at runtime if that fails (useful on Vercel).
+let DATA_DIR = processEnv.LOCAL_DB_DIR?.trim() || defaultDataDir
 let DB_PATH = path.join(DATA_DIR, 'local-db.json')
 
 const DEFAULT_ADMIN_USERNAME = 'admin'
@@ -87,24 +90,29 @@ function withLock<T>(task: () => Promise<T>): Promise<T> {
 }
 
 async function ensureDataDir() {
-  try {
-    await fs.mkdir(DATA_DIR, { recursive: true })
-  } catch (error: any) {
-    const shouldFallbackToTmp =
-      DATA_DIR !== vercelFallbackDataDir &&
-      (error?.code === 'ENOENT' ||
-        error?.code === 'EACCES' ||
-        error?.code === 'EPERM' ||
-        error?.code === 'EROFS')
+  const tried: string[] = []
+  const candidates = [DATA_DIR, tmpFallbackDataDir, vercelFallbackDataDir]
+  let lastError: any = null
 
-    if (!shouldFallbackToTmp) {
-      throw error
+  for (const candidate of candidates) {
+    if (!candidate) continue
+    try {
+      await fs.mkdir(candidate, { recursive: true })
+      DATA_DIR = candidate
+      DB_PATH = path.join(DATA_DIR, 'local-db.json')
+      return
+    } catch (err: any) {
+      lastError = err
+      tried.push(`${candidate} (${err?.code || err})`)
+      // try next candidate
     }
-
-    DATA_DIR = vercelFallbackDataDir
-    DB_PATH = path.join(DATA_DIR, 'local-db.json')
-    await fs.mkdir(DATA_DIR, { recursive: true })
   }
+
+  // If we get here none of the candidates worked — surface a clearer error.
+  const message = `Failed to create writable data directory. Tried: ${tried.join(', ')}`
+  const error = new Error(message)
+  ;(error as any).cause = lastError
+  throw error
 }
 
 async function createDefaultAdminIfNeeded(state: LocalDbState) {

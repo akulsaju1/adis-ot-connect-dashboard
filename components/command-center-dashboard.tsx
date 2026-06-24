@@ -18,6 +18,7 @@ interface Dismissal {
   gateScanTime: Date | null
   groundOpsTime: Date | null
   finalDismissalTime: Date | null
+  event?: 'student_at_gate' | 'parent_arrived' | 'student_left'
 }
 
 interface Stats {
@@ -93,7 +94,13 @@ export function CommandCenterDashboard() {
 
             try {
               const result = await scanNfcAtGate(nfcCode)
-              setNfcStatus(`✓ Student scanned: ${result.studentName}`)
+              if (result.event === 'parent_arrived') {
+                setNfcStatus(`✓ Parent arrived: ${result.studentName}`)
+              } else if (result.event === 'student_left') {
+                setNfcStatus(`✓ Student left: ${result.studentName}`)
+              } else {
+                setNfcStatus(`✓ Student at gate: ${result.studentName}`)
+              }
               
               // Reload data
               const [allDismissals, currentStats] = await Promise.all([

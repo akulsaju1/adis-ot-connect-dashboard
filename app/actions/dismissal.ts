@@ -26,6 +26,17 @@ function serializeDismissal<T extends { [key: string]: any }>(record: T) {
   }
 }
 
+function getLatestDismissalForStudent(
+  dismissals: Array<{ studentId: string; createdAt: string }>,
+  studentId: string
+) {
+  const matches = dismissals
+    .filter((item) => item.studentId === studentId)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
+  return matches[0] || null
+}
+
 // NFC operations
 export async function registerNfcTag(
   nfcCode: string,
@@ -183,12 +194,20 @@ export async function scanNfcAtGate(nfcCode: string) {
 
   if (!tag) throw new Error('NFC tag not found')
 
-  const updated = await updateLocalDb(async (state) => {
-    let dismissal = state.dismissals.find(
-      (item) => item.studentId === tag.studentId && item.status === 'waiting'
-    )
+  const result = await updateLocalDb(async (state) => {
+    let dismissal = getLatestDismissalForStudent(state.dismissals, tag.studentId)
+    const nowIso = new Date().toISOString()
+    let event: 'student_at_gate' | 'parent_arrived' | 'student_left' = 'student_at_gate'
 
-    if (!dismissal) {
+    if (!dismissal || dismissal.status === 'completed') {
+      // Prevent accidental duplicate re-entry immediately after a leaving tap.
+      if (dismissal?.finalDismissalTime) {
+        const sinceCompleteMs = Date.now() - new Date(dismissal.finalDismissalTime).getTime()
+        if (sinceCompleteMs < 10_000) {
+          throw new Error('Student already marked as left. Please wait a few seconds before rescanning.')
+        }
+      }
+
       dismissal = {
         id: nextId(state.dismissals),
         studentId: tag.studentId,
@@ -198,23 +217,42 @@ export async function scanNfcAtGate(nfcCode: string) {
         parentName: '',
         parentPhone: '',
         pickupMethod: 'walk',
-        nfcScanTime: new Date().toISOString(),
+        nfcScanTime: nowIso,
         gateScanTime: null,
         groundOpsTime: null,
         finalDismissalTime: null,
         status: 'waiting',
         notes: null,
         userId: await getUserId(),
-        createdAt: new Date().toISOString(),
+        createdAt: nowIso,
       }
       state.dismissals.push(dismissal)
     }
 
-    dismissal.gateScanTime = new Date().toISOString()
-    dismissal.status = 'at_gate'
-    return dismissal
+    if (dismissal.status === 'waiting') {
+      dismissal.gateScanTime = nowIso
+      dismissal.status = 'at_gate'
+      event = 'student_at_gate'
+    } else if (dismissal.status === 'at_gate' || dismissal.status === 'in_queue') {
+      dismissal.groundOpsTime = nowIso
+      dismissal.status = 'parent_arrived'
+      event = 'parent_arrived'
+    } else if (dismissal.status === 'parent_arrived') {
+      dismissal.finalDismissalTime = nowIso
+      dismissal.status = 'completed'
+      event = 'student_left'
+    }
+
+    return {
+      dismissal,
+      event,
+    }
   })
-  return serializeDismissal(updated)
+
+  return {
+    ...serializeDismissal(result.dismissal),
+    event: result.event,
+  }
 }
 
 export async function updateDismissalStatus(
