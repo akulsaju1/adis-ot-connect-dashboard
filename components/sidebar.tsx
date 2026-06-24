@@ -3,26 +3,39 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, ScanLine, MapPinned, Users, GraduationCap, LogOut, Shield, ChevronRight } from 'lucide-react'
+import { LayoutDashboard, ScanLine, MapPinned, Users, GraduationCap, LogOut, Shield, ChevronRight, Lock } from 'lucide-react'
 import { logout } from '@/app/actions/auth'
+import { logoutStaff } from '@/app/actions/staff-auth'
 
-const navigation = [
+const adminNavigation = [
   { name: 'Command Center', href: '/command-center', icon: LayoutDashboard },
   { name: 'Gate Entrance', href: '/gate-entrance', icon: ScanLine },
   { name: 'Ground Operations', href: '/ground-ops', icon: MapPinned },
   { name: 'Student Registry', href: '/student-registry', icon: GraduationCap },
   { name: 'Staff Directory', href: '/staff-directory', icon: Users },
+  { name: 'Staff Management', href: '/staff-management', icon: Lock },
 ]
 
-export function Sidebar({ userName }: { userName?: string }) {
+const staffNavigation = [
+  { name: 'Staff Portal', href: '/staff-portal', icon: ScanLine },
+]
+
+export function Sidebar({ userName, userType }: { userName?: string; userType?: 'admin' | 'staff' }) {
   const pathname = usePathname()
   const router = useRouter()
 
   const handleLogout = async () => {
-    await logout()
-    router.push('/login')
+    if (userType === 'staff') {
+      await logoutStaff()
+      router.push('/staff-login')
+    } else {
+      await logout()
+      router.push('/login')
+    }
     router.refresh()
   }
+
+  const navigation = userType === 'staff' ? staffNavigation : adminNavigation
 
   return (
     <aside className="w-72 shrink-0 bg-primary/95 text-white flex flex-col border-r border-primary/20 shadow-[0_24px_80px_rgba(15,23,42,0.24)] backdrop-blur">
@@ -32,12 +45,12 @@ export function Sidebar({ userName }: { userName?: string }) {
             <Shield className="h-5 w-5 text-white" />
           </div>
           <div>
-            <p className="text-[10px] uppercase tracking-[0.35em] text-white/60">Campus Operations</p>
+            <p className="text-[10px] uppercase tracking-[0.35em] text-white/60">{userType === 'staff' ? 'Gate Staff' : 'Campus Operations'}</p>
             <h1 className="text-xl font-semibold text-balance leading-tight">ADIS OT-Connect</h1>
           </div>
         </div>
         <p className="mt-4 text-sm leading-6 text-white/70">
-          Secure dismissal workflow, live tracking, and school-wide coordination.
+          {userType === 'staff' ? 'Manage student dispersals and pickups.' : 'Secure dismissal workflow, live tracking, and school-wide coordination.'}
         </p>
       </div>
 

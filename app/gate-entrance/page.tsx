@@ -11,7 +11,7 @@ export default async function Page() {
   }
 
   return (
-    <LayoutWrapper userName={session.name || 'Admin'}>
+    <LayoutWrapper userName={session.name || 'Admin'} userType="admin">
       <DispersalConsole />
     </LayoutWrapper>
   )
