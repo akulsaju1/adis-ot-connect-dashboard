@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { scanNfcAtGate, getDismissalsByStatus } from '@/app/actions/dismissal'
-import { Wifi, WifiOff, Radio, AlertCircle, CheckCircle2, ScanFace, Users, BadgeInfo } from 'lucide-react'
+import { scanNfcAtGate, getDismissalsByStatus, type ScanMode } from '@/app/actions/dismissal'
+import { Wifi, WifiOff, Radio, AlertCircle, CheckCircle2, ScanFace, Users, BadgeInfo, LogIn, LogOut, Repeat } from 'lucide-react'
 
 interface Dismissal {
   id: number
@@ -31,7 +31,13 @@ export function GateEntranceScanner() {
   const [messageType, setMessageType] = useState<'success' | 'error' | ''>('')
   const readerRef = useRef<any>(null)
   const [lastScannedCode, setLastScannedCode] = useState('')
+  const [scanMode, setScanMode] = useState<ScanMode>('auto')
+  const scanModeRef = useRef<ScanMode>('auto')
   const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    scanModeRef.current = scanMode
+  }, [scanMode])
 
   // Load recent scans and detect sibling groups
   useEffect(() => {
@@ -43,8 +49,8 @@ export function GateEntranceScanner() {
         // Detect sibling groups (students with same parent in last 30 seconds)
         const now = Date.now()
         const groups: Record<string, Dismissal[]> = {}
-        
-        (scans as Dismissal[]).forEach(scan => {
+
+        ;(scans as Dismissal[]).forEach(scan => {
           if (scan.parentName) {
             const scanTime = new Date(scan.gateScanTime!).getTime()
             if (now - scanTime < 30000) { // Within last 30 seconds
@@ -121,23 +127,31 @@ export function GateEntranceScanner() {
 
   const handleNfcScan = async (nfcCode: string) => {
     try {
-      const result = await scanNfcAtGate(nfcCode)
+      const result = await scanNfcAtGate(nfcCode, scanModeRef.current)
+
+      if (!result.ok) {
+        setMessage(result.error)
+        setMessageType('error')
+        setTimeout(() => setMessage(''), 3000)
+        return
+      }
+
       if (result.event === 'parent_arrived') {
         setMessage(`✓ Parent arrived: ${result.studentName} (${result.class})`)
       } else if (result.event === 'student_left') {
-        setMessage(`✓ Student left campus: ${result.studentName} (${result.class})`)
+        setMessage(`✓ Dispersal ended: ${result.studentName} (${result.class})`)
       } else {
         setMessage(`✓ Student at gate: ${result.studentName} (${result.class})`)
       }
       setMessageType('success')
-      
+
       // Reload recent scans
       const scans = await getDismissalsByStatus('at_gate')
       setRecentScans(scans as Dismissal[])
 
       setTimeout(() => setMessage(''), 3000)
     } catch (error: any) {
-      setMessage(`Error: ${error.message}`)
+      setMessage('Something went wrong while scanning. Please try again.')
       setMessageType('error')
       setTimeout(() => setMessage(''), 3000)
     }
@@ -194,7 +208,58 @@ export function GateEntranceScanner() {
             </div>
             <div>
               <h3 className="text-lg font-semibold text-foreground">Manual NFC Code Entry</h3>
-              <p className="text-sm text-muted-foreground">Student tap: arrive. Next tap: parent arrived. Next tap: student left.</p>
+              <p className="text-sm text-muted-foreground">
+                {scanMode === 'dispersal'
+                  ? 'Each tap marks the student as at the gate (dispersal started).'
+                  : scanMode === 'end_dispersal'
+                    ? 'Each tap marks the student as left campus (dispersal ended).'
+                    : 'Student tap: arrive. Next tap: parent arrived. Next tap: student left.'}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Scan mode</p>
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <button
+                type="button"
+                onClick={() => setScanMode('auto')}
+                aria-pressed={scanMode === 'auto'}
+                className={`inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition ${
+                  scanMode === 'auto'
+                    ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+                    : 'border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground'
+                }`}
+              >
+                <Repeat className="h-4 w-4" />
+                Auto cycle
+              </button>
+              <button
+                type="button"
+                onClick={() => setScanMode('dispersal')}
+                aria-pressed={scanMode === 'dispersal'}
+                className={`inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition ${
+                  scanMode === 'dispersal'
+                    ? 'border-emerald-500 bg-emerald-500 text-white shadow-sm'
+                    : 'border-border bg-background text-muted-foreground hover:border-emerald-400 hover:text-foreground'
+                }`}
+              >
+                <LogIn className="h-4 w-4" />
+                Dispersal
+              </button>
+              <button
+                type="button"
+                onClick={() => setScanMode('end_dispersal')}
+                aria-pressed={scanMode === 'end_dispersal'}
+                className={`inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition ${
+                  scanMode === 'end_dispersal'
+                    ? 'border-red-500 bg-red-500 text-white shadow-sm'
+                    : 'border-border bg-background text-muted-foreground hover:border-red-400 hover:text-foreground'
+                }`}
+              >
+                <LogOut className="h-4 w-4" />
+                End dispersal
+              </button>
             </div>
           </div>
 

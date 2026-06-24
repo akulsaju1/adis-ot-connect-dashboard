@@ -6,69 +6,12 @@
       "email": "admin@adis.ae",
       "passwordHash": "$2b$10$yPr0nv1mgNh.NNa77/YHl.LSpp8ruyJWBKapzWEAN0NPQBQG0uC.G",
       "name": "Admin Staff",
-      "createdAt": "2026-06-24T00:00:00.000Z"
+      "createdAt": "2026-06-24T19:02:03.822Z"
     }
   ],
-  "nfcTags": [
-    {
-      "id": 1,
-      "nfcCode": "6773",
-      "studentId": "STU-1782319391596",
-      "studentName": "Akul Saju",
-      "class": "10 EM",
-      "block": "Boys Block",
-      "createdAt": "2026-06-24T16:43:11.842Z"
-    }
-  ],
-  "dismissals": [
-    {
-      "id": 1,
-      "studentId": "STU-1782319391596",
-      "studentName": "Akul Saju",
-      "class": "10 EM",
-      "block": "Boys Block",
-      "parentName": "",
-      "parentPhone": "",
-      "pickupMethod": "walk",
-      "nfcScanTime": "2026-06-24T16:44:26.927Z",
-      "gateScanTime": "2026-06-24T16:44:26.930Z",
-      "groundOpsTime": null,
-      "finalDismissalTime": null,
-      "status": "at_gate",
-      "notes": null,
-      "userId": "admin-user-final",
-      "createdAt": "2026-06-24T16:44:26.929Z"
-    },
-    {
-      "id": 2,
-      "studentId": "STU-1782319391596",
-      "studentName": "Akul Saju",
-      "class": "10 EM",
-      "block": "Boys Block",
-      "parentName": "",
-      "parentPhone": "",
-      "pickupMethod": "walk",
-      "nfcScanTime": "2026-06-24T16:44:45.983Z",
-      "gateScanTime": "2026-06-24T16:44:45.983Z",
-      "groundOpsTime": null,
-      "finalDismissalTime": null,
-      "status": "at_gate",
-      "notes": null,
-      "userId": "admin-user-final",
-      "createdAt": "2026-06-24T16:44:45.983Z"
-    }
-  ],
-  "staffDirectory": [
-    {
-      "id": 1,
-      "staffName": "Example",
-      "role": "gate_staff",
-      "block": "",
-      "phone": "",
-      "email": "demo@adiswathba.com",
-      "isActive": true,
-      "userId": "admin-user-final",
-      "createdAt": "2026-06-24T16:46:12.533Z"
-    }
-  ]
+  "nfcTags": [],
+  "dismissals": [],
+  "staffDirectory": [],
+  "dispersalSessions": [],
+  "pickupLogs": []
 }

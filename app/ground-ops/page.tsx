@@ -8,7 +8,7 @@ export default async function Page() {
   if (!session) redirect('/login')
 
   return (
-    <LayoutWrapper userName={session.name || 'Admin'}>
+    <LayoutWrapper userName={session.name || 'Admin'} userType="admin">
       <GroundOpsQueue />
     </LayoutWrapper>
   )

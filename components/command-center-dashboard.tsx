@@ -94,6 +94,11 @@ export function CommandCenterDashboard() {
 
             try {
               const result = await scanNfcAtGate(nfcCode)
+              if (!result.ok) {
+                setNfcStatus(`Error: ${result.error}`)
+                setTimeout(() => setLastScannedCode(''), 500)
+                return
+              }
               if (result.event === 'parent_arrived') {
                 setNfcStatus(`✓ Parent arrived: ${result.studentName}`)
               } else if (result.event === 'student_left') {
@@ -112,7 +117,7 @@ export function CommandCenterDashboard() {
 
               setTimeout(() => setLastScannedCode(''), 500)
             } catch (error: any) {
-              setNfcStatus(`Error: ${error.message}`)
+              setNfcStatus('Error: scan failed, please try again.')
             }
           }
         }

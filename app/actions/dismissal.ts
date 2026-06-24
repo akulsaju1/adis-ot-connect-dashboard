@@ -4,7 +4,9 @@ import {
   readLocalDb,
   sortByCreatedAtDesc,
   updateLocalDb,
+  type LocalDismissal,
 } from '@/lib/local-db'
+import { getStaffSession } from './staff-auth'
 
 async function getUserId() {
   // Local single-admin store keeps the app scoped to one operator.
@@ -27,9 +29,9 @@ function serializeDismissal<T extends { [key: string]: any }>(record: T) {
 }
 
 function getLatestDismissalForStudent(
-  dismissals: Array<{ studentId: string; createdAt: string }>,
+  dismissals: LocalDismissal[],
   studentId: string
-) {
+): LocalDismissal | null {
   const matches = dismissals
     .filter((item) => item.studentId === studentId)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -43,8 +45,16 @@ export async function registerNfcTag(
   studentId: string,
   studentName: string,
   class_: string,
-  block: string
+  block: string,
+  parentEmail?: string | null,
+  grNumber?: string | null
 ) {
+  // Gate staff cannot register NFC tags (edit student data)
+  const staffSession = await getStaffSession()
+  if (staffSession) {
+    throw new Error('Gate staff cannot register NFC tags. This is an admin-only function.')
+  }
+
   const result = await updateLocalDb(async (state) => {
     const existing = state.nfcTags.find((tag) => tag.nfcCode === nfcCode)
     if (existing) {
@@ -58,6 +68,8 @@ export async function registerNfcTag(
       studentName,
       class: class_,
       block,
+      parentEmail: parentEmail || null,
+      grNumber: grNumber || null,
       createdAt: new Date().toISOString(),
     }
 
@@ -75,6 +87,11 @@ export async function getNfcTag(nfcCode: string) {
 export async function bulkRegisterStudents(
   students: Array<{ name: string; class: string; block: string; nfcCode: string }>
 ) {
+  // Gate staff cannot bulk register students (edit student data)
+  const staffSession = await getStaffSession()
+  if (staffSession) {
+    throw new Error('Gate staff cannot register students. This is an admin-only function.')
+  }
   const userId = await getUserId()
   let imported = 0
   let skipped = 0
@@ -102,6 +119,8 @@ export async function bulkRegisterStudents(
           studentName: s.name,
           class: s.class || '',
           block: s.block || 'Boys Block',
+          parentEmail: (s as any).parentEmail || null,
+          grNumber: (s as any).grNumber || null,
           createdAt: new Date().toISOString(),
         })
 
@@ -121,6 +140,9 @@ export async function bulkRegisterStudents(
           status: 'waiting',
           notes: null,
           userId,
+          dispersalSessionId: null,
+          dispersalGroupId: null,
+          pickedUpAt: null,
           createdAt: new Date().toISOString(),
         })
         imported++
@@ -161,6 +183,12 @@ export async function createDismissal(
   parentPhone: string,
   pickupMethod: string
 ) {
+  // Gate staff cannot create dismissals (edit student data)
+  const staffSession = await getStaffSession()
+  if (staffSession) {
+    throw new Error('Gate staff cannot create dismissals. This is an admin-only function.')
+  }
+
   const userId = await getUserId()
 
   const result = await updateLocalDb(async (state) => {
@@ -180,6 +208,9 @@ export async function createDismissal(
       status: 'waiting',
       notes: null,
       userId,
+      dispersalSessionId: null,
+      dispersalGroupId: null,
+      pickedUpAt: null,
       createdAt: new Date().toISOString(),
     }
 
@@ -189,69 +220,135 @@ export async function createDismissal(
   return serializeDismissal(result)
 }
 
-export async function scanNfcAtGate(nfcCode: string) {
-  const tag = await getNfcTag(nfcCode)
+export type ScanMode = 'auto' | 'dispersal' | 'end_dispersal'
 
-  if (!tag) throw new Error('NFC tag not found')
+export type ScanResult =
+  | {
+      ok: true
+      event: 'student_at_gate' | 'parent_arrived' | 'student_left'
+      studentName: string
+      class: string
+      block: string
+      status: string
+    }
+  | { ok: false; error: string }
 
-  const result = await updateLocalDb(async (state) => {
-    let dismissal = getLatestDismissalForStudent(state.dismissals, tag.studentId)
-    const nowIso = new Date().toISOString()
-    let event: 'student_at_gate' | 'parent_arrived' | 'student_left' = 'student_at_gate'
+export async function scanNfcAtGate(
+  nfcCode: string,
+  mode: ScanMode = 'auto'
+): Promise<ScanResult> {
+  try {
+    const trimmed = (nfcCode || '').trim()
+    if (!trimmed) {
+      return { ok: false, error: 'No NFC code was provided.' }
+    }
 
-    if (!dismissal || dismissal.status === 'completed') {
-      // Prevent accidental duplicate re-entry immediately after a leaving tap.
-      if (dismissal?.finalDismissalTime) {
-        const sinceCompleteMs = Date.now() - new Date(dismissal.finalDismissalTime).getTime()
-        if (sinceCompleteMs < 10_000) {
-          throw new Error('Student already marked as left. Please wait a few seconds before rescanning.')
+    const tag = await getNfcTag(trimmed)
+
+    if (!tag) {
+      return { ok: false, error: `No student is registered to this tag (${trimmed}).` }
+    }
+
+    const result = await updateLocalDb(async (state) => {
+      let dismissal = getLatestDismissalForStudent(state.dismissals, tag.studentId)
+      const nowIso = new Date().toISOString()
+      let event: 'student_at_gate' | 'parent_arrived' | 'student_left' = 'student_at_gate'
+
+      const createFreshDismissal = () => {
+        const created = {
+          id: nextId(state.dismissals),
+          studentId: tag.studentId,
+          studentName: tag.studentName,
+          class: tag.class || '',
+          block: tag.block || '',
+          parentName: '',
+          parentPhone: '',
+          pickupMethod: 'walk',
+          nfcScanTime: nowIso,
+          gateScanTime: null,
+          groundOpsTime: null,
+          finalDismissalTime: null,
+          status: 'waiting',
+          notes: null,
+          userId: 'admin-user-final',
+          dispersalSessionId: null,
+          dispersalGroupId: null,
+          pickedUpAt: null,
+          createdAt: nowIso,
         }
+        state.dismissals.push(created)
+        return created
       }
 
-      dismissal = {
-        id: nextId(state.dismissals),
-        studentId: tag.studentId,
-        studentName: tag.studentName,
-        class: tag.class || '',
-        block: tag.block || '',
-        parentName: '',
-        parentPhone: '',
-        pickupMethod: 'walk',
-        nfcScanTime: nowIso,
-        gateScanTime: null,
-        groundOpsTime: null,
-        finalDismissalTime: null,
-        status: 'waiting',
-        notes: null,
-        userId: await getUserId(),
-        createdAt: nowIso,
+      // Manual override: force the start of dispersal (student at gate).
+      if (mode === 'dispersal') {
+        if (!dismissal || dismissal.status === 'completed') {
+          dismissal = createFreshDismissal()
+        }
+        dismissal.gateScanTime = nowIso
+        dismissal.status = 'at_gate'
+        event = 'student_at_gate'
+        return { dismissal, event }
       }
-      state.dismissals.push(dismissal)
+
+      // Manual override: force end of dispersal (student left campus).
+      if (mode === 'end_dispersal') {
+        if (!dismissal) {
+          dismissal = createFreshDismissal()
+        }
+        dismissal.finalDismissalTime = nowIso
+        dismissal.status = 'completed'
+        event = 'student_left'
+        return { dismissal, event }
+      }
+
+      // Auto mode: cycle waiting -> at_gate -> parent_arrived -> completed.
+      if (!dismissal || dismissal.status === 'completed') {
+        if (dismissal?.finalDismissalTime) {
+          const sinceCompleteMs = Date.now() - new Date(dismissal.finalDismissalTime).getTime()
+          if (sinceCompleteMs < 10_000) {
+            return { error: 'Student already marked as left. Please wait a few seconds before rescanning.' as const }
+          }
+        }
+        dismissal = createFreshDismissal()
+      }
+
+      if (dismissal.status === 'waiting') {
+        dismissal.gateScanTime = nowIso
+        dismissal.status = 'at_gate'
+        event = 'student_at_gate'
+      } else if (dismissal.status === 'at_gate' || dismissal.status === 'in_queue') {
+        dismissal.groundOpsTime = nowIso
+        dismissal.status = 'parent_arrived'
+        event = 'parent_arrived'
+      } else if (dismissal.status === 'parent_arrived') {
+        dismissal.finalDismissalTime = nowIso
+        dismissal.status = 'completed'
+        event = 'student_left'
+      }
+
+      return { dismissal, event }
+    })
+
+    if ('error' in result && result.error) {
+      return { ok: false, error: result.error }
     }
 
-    if (dismissal.status === 'waiting') {
-      dismissal.gateScanTime = nowIso
-      dismissal.status = 'at_gate'
-      event = 'student_at_gate'
-    } else if (dismissal.status === 'at_gate' || dismissal.status === 'in_queue') {
-      dismissal.groundOpsTime = nowIso
-      dismissal.status = 'parent_arrived'
-      event = 'parent_arrived'
-    } else if (dismissal.status === 'parent_arrived') {
-      dismissal.finalDismissalTime = nowIso
-      dismissal.status = 'completed'
-      event = 'student_left'
-    }
-
+    const dismissal = (result as { dismissal: any; event: any }).dismissal
     return {
-      dismissal,
-      event,
+      ok: true,
+      event: (result as { event: any }).event,
+      studentName: dismissal.studentName,
+      class: dismissal.class,
+      block: dismissal.block,
+      status: dismissal.status,
     }
-  })
-
-  return {
-    ...serializeDismissal(result.dismissal),
-    event: result.event,
+  } catch (error: any) {
+    console.log('[v0] scanNfcAtGate failed:', error?.message || error)
+    return {
+      ok: false,
+      error: 'Could not save the scan. Please try again.',
+    }
   }
 }
 
@@ -323,12 +420,16 @@ export async function addStaffMember(
     const created = {
       id: nextId(state.staffDirectory),
       staffName,
+      username: null,
+      passwordHash: null,
       role,
       block,
       phone,
       email,
+      nfcLoginFormat: null,
       isActive: true,
       userId: await getUserId(),
+      lastLogin: null,
       createdAt: new Date().toISOString(),
     }
 
