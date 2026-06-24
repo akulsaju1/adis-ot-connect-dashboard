@@ -66,14 +66,14 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
               <label htmlFor="username" className="block text-sm font-medium text-foreground">
-                Username
+                Username or Email
               </label>
               <input
                 id="username"
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="admin"
+                placeholder="admin or admin@adis.ae"
                 className="h-11 w-full rounded-xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
                 required
               />
@@ -111,7 +111,7 @@ export default function LoginPage() {
           </form>
 
           <p className="mt-8 text-center text-sm text-muted-foreground">
-            Abu Dhabi Indian School • Al Wathba Campus
+            Use admin / Adis@2025 or admin@adis.ae / Adis@2025
           </p>
         </section>
         </div>
