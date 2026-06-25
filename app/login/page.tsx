@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { loginAdmin } from '@/app/actions/auth'
-import { loginStaff } from '@/app/actions/staff-auth'
+import { loginStaff, loginStaffViaCard } from '@/app/actions/staff-auth'
 import { Button } from '@/components/ui/button'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, Wifi, WifiOff, ScanFace } from 'lucide-react'
 
 export default function LoginPage() {
   const [userType, setUserType] = useState<'admin' | 'staff'>('admin')
@@ -13,7 +13,17 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [nfcEnabled, setNfcEnabled] = useState(false)
   const router = useRouter()
+
+  // Initialize NFC Reader
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('NDEFReader' in window)) {
+      setNfcEnabled(false)
+      return
+    }
+    setNfcEnabled(true)
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -41,6 +51,61 @@ export default function LoginPage() {
     } catch (err) {
       setError('An error occurred')
     } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleNfcLogin = async () => {
+    if (!nfcEnabled || userType !== 'staff' || !('NDEFReader' in window)) {
+      setError('NFC login is only available for Gate Staff')
+      return
+    }
+
+    setError('')
+    setLoading(true)
+
+    try {
+      const reader = new (window as any).NDEFReader()
+      await reader.scan()
+
+      reader.onreading = async (event: any) => {
+        const decoder = new TextDecoder()
+        for (const record of event.message.records) {
+          if (record.recordType === 'text') {
+            const nfcText = decoder.decode(record.data)
+            
+            // Attempt login with NFC data
+            const result = await loginStaffViaCard(nfcText.trim())
+            if (result.ok) {
+              router.push('/staff-portal')
+              router.refresh()
+            } else {
+              setError(result.error || 'Invalid NFC card')
+              setLoading(false)
+            }
+            reader.abort()
+            return
+          }
+        }
+        setError('No valid data on card')
+        reader.abort()
+        setLoading(false)
+      }
+
+      reader.onerror = () => {
+        setError('NFC scan cancelled')
+        setLoading(false)
+      }
+
+      // Auto-cancel after 30 seconds
+      const timeout = setTimeout(() => {
+        setError('NFC scan timeout')
+        setLoading(false)
+      }, 30000)
+
+      return () => clearTimeout(timeout)
+    } catch (error: any) {
+      setError('NFC scan failed')
       setLoading(false)
     }
   }
@@ -158,6 +223,25 @@ export default function LoginPage() {
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </form>
+
+          {/* NFC Login for Staff */}
+          {userType === 'staff' && nfcEnabled && (
+            <div className="space-y-3 border-t border-border pt-5">
+              <div className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2">
+                <Wifi className="h-4 w-4 text-green-500" />
+                <span className="text-sm font-medium text-green-700">NFC Ready</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleNfcLogin}
+                disabled={loading}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-primary bg-primary/5 py-2.5 font-medium text-primary hover:bg-primary/10 disabled:opacity-50 transition"
+              >
+                <ScanFace className="h-4 w-4" />
+                {loading ? 'Waiting for card...' : 'Tap NFC Card'}
+              </button>
+            </div>
+          )}
         </section>
         </div>
     </main>
