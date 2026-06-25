@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, ScanLine, MapPinned, Users, GraduationCap, LogOut, Shield, ChevronRight, Lock } from 'lucide-react'
+import { LayoutDashboard, ScanLine, MapPinned, Users, GraduationCap, LogOut, ChevronRight, Lock } from 'lucide-react'
 import { logout } from '@/app/actions/auth'
 import { logoutStaff } from '@/app/actions/staff-auth'
 
@@ -40,14 +40,16 @@ export function Sidebar({ userName, userType }: { userName?: string; userType?: 
   return (
     <aside className="w-72 shrink-0 bg-primary/95 text-white flex flex-col border-r border-primary/20 shadow-[0_24px_80px_rgba(15,23,42,0.24)] backdrop-blur">
       <div className="p-6 border-b border-white/10 bg-white/5">
-        <div className="flex items-center gap-3">
-          <div className="grid h-11 w-11 place-items-center rounded-2xl bg-white/12 ring-1 ring-white/15">
-            <Shield className="h-5 w-5 text-white" />
-          </div>
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.35em] text-white/60">{userType === 'staff' ? 'Gate Staff' : 'Campus Operations'}</p>
-            <h1 className="text-xl font-semibold text-balance leading-tight">ADIS OT-Connect</h1>
-          </div>
+        <div className="mb-4 flex justify-center">
+          <img 
+            src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Logo-1-zoFmQvusRlyZECyVQKBwJ9i9f9aPw7.webp" 
+            alt="Abu Dhabi Indian School Logo" 
+            className="h-16 w-16 object-contain"
+          />
+        </div>
+        <div>
+          <p className="text-center text-[10px] uppercase tracking-[0.35em] text-white/60">{userType === 'staff' ? 'Gate Staff' : 'Campus Operations'}</p>
+          <h1 className="text-center text-lg font-semibold text-balance leading-tight">ADIS OT-Connect</h1>
         </div>
         <p className="mt-4 text-sm leading-6 text-white/70">
           {userType === 'staff' ? 'Manage student dispersals and pickups.' : 'Secure dismissal workflow, live tracking, and school-wide coordination.'}

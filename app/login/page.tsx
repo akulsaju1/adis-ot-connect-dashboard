@@ -38,6 +38,13 @@ export default function LoginPage() {
       <div className="w-full max-w-5xl overflow-hidden rounded-[2rem] bg-white/95 shadow-[0_30px_100px_rgba(15,23,42,0.35)] ring-1 ring-white/15 grid lg:grid-cols-[0.95fr_1.05fr]">
         <section className="hidden lg:flex flex-col justify-between bg-slate-950 p-10 text-white">
           <div>
+            <div className="mb-8 flex justify-center">
+              <img 
+                src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Logo-1-zoFmQvusRlyZECyVQKBwJ9i9f9aPw7.webp" 
+                alt="Abu Dhabi Indian School Logo" 
+                className="h-40 w-40 object-contain"
+              />
+            </div>
             <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.28em] text-white/70">
               ADIS AL WATHBA
             </div>
