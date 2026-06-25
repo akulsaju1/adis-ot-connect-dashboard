@@ -2,9 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { getDismissalsByStatus, updateDismissalStatus } from '@/app/actions/dismissal'
-import { getParentInfo } from '@/app/actions/parent'
-import { ParentPickupCard } from './parent-pickup-card'
-import { CheckCircle2, Clock, Users, Filter, ClipboardList } from 'lucide-react'
+import { getParentInfo, dismissMultipleChildren } from '@/app/actions/parent'
+import { CheckCircle2, Clock, Users, Filter, ClipboardList, X } from 'lucide-react'
 
 interface Dismissal {
   id: number
@@ -16,11 +15,12 @@ interface Dismissal {
   pickupMethod: string
   status: string
   groundOpsTime: Date | null
+  nfcCode?: string
 }
 
 interface ParentData {
-  parent: { id: number; parentName: string; phone: string | null }
-  children: Array<any>
+  parent: { id: number; parentName: string; phone: string | null; nfcCode: string }
+  children: Array<{ id: number; studentId: string; studentName: string; class: string; block: string; status: string }>
 }
 
 export function GroundOpsQueue() {
@@ -29,7 +29,7 @@ export function GroundOpsQueue() {
   const [loading, setLoading] = useState(true)
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null)
   const [selectedParentModal, setSelectedParentModal] = useState<ParentData | null>(null)
-  const [viewMode, setViewMode] = useState<'students' | 'parents'>('students')
+  const [selectedChildren, setSelectedChildren] = useState<Set<string>>(new Set())
 
   const BLOCKS = ['KG', 'Girls Block', 'Boys Block']
 
@@ -103,15 +103,55 @@ export function GroundOpsQueue() {
     }
   }
 
-  const handleParentCardOpen = async (nfcCode: string, parentName: string) => {
+  const handleParentCardOpen = async (nfcCode: string) => {
     try {
       const parentInfo = await getParentInfo(nfcCode)
       if (parentInfo) {
         setSelectedParentModal(parentInfo)
+        setSelectedChildren(new Set())
       }
     } catch (error) {
       console.error('Failed to get parent info:', error)
       alert('Failed to load parent information')
+    }
+  }
+
+  const handleToggleChild = (studentId: string) => {
+    setSelectedChildren(prev => {
+      const updated = new Set(prev)
+      if (updated.has(studentId)) {
+        updated.delete(studentId)
+      } else {
+        updated.add(studentId)
+      }
+      return updated
+    })
+  }
+
+  const handleCompleteDismissal = async () => {
+    if (!selectedParentModal || selectedChildren.size === 0) {
+      alert('Select at least one child')
+      return
+    }
+
+    try {
+      await dismissMultipleChildren(
+        selectedParentModal.parent.id,
+        Array.from(selectedChildren)
+      )
+      setSelectedParentModal(null)
+      setSelectedChildren(new Set())
+      
+      // Reload queue
+      const [q, c] = await Promise.all([
+        getDismissalsByStatus('at_gate'),
+        getDismissalsByStatus('completed'),
+      ])
+      setQueue((q as Dismissal[]) || [])
+      setCompleted((c as Dismissal[]) || [])
+    } catch (error) {
+      console.error('Failed to dismiss:', error)
+      alert('Failed to complete dismissal')
     }
   }
 
@@ -198,27 +238,35 @@ export function GroundOpsQueue() {
                     <div>
                       <p className="text-lg font-semibold text-foreground">{item.studentName}</p>
                       <p className="text-sm text-muted-foreground">{item.class} | {item.block}</p>
-                      {item.parentName && (
-                        <p className="mt-1 text-xs text-muted-foreground">Parent: {item.parentName}</p>
-                      )}
                     </div>
-                    <span className={`rounded-full px-3 py-1 text-xs font-medium ${item.pickupMethod === 'walk' ? 'bg-emerald-100 text-emerald-900' : 'bg-amber-100 text-amber-900'}`}>
-                      {item.pickupMethod.charAt(0).toUpperCase() + item.pickupMethod.slice(1)}
+                    <span className={`rounded-full px-3 py-1 text-xs font-medium ${item.pickupMethod === 'walk' ? 'bg-emerald-100 text-emerald-900' : item.pickupMethod === 'parent' ? 'bg-blue-100 text-blue-900' : 'bg-amber-100 text-amber-900'}`}>
+                      {item.pickupMethod === 'parent' ? 'Parent Pickup' : item.pickupMethod.charAt(0).toUpperCase() + item.pickupMethod.slice(1)}
                     </span>
                   </div>
                   <div className="flex gap-2">
-                    <button
-                      onClick={() => handleParentArrived(item.id)}
-                      className="flex-1 rounded-xl bg-amber-100 px-3 py-2.5 text-sm font-medium text-amber-900 transition hover:bg-amber-200"
-                    >
-                      Parent Arrived
-                    </button>
-                    <button
-                      onClick={() => handleDismissed(item.id)}
-                      className="flex-1 rounded-xl bg-emerald-100 px-3 py-2.5 text-sm font-medium text-emerald-900 transition hover:bg-emerald-200"
-                    >
-                      Dismissed
-                    </button>
+                    {item.pickupMethod === 'parent' ? (
+                      <button
+                        onClick={() => handleParentCardOpen(item.nfcCode || item.studentName)}
+                        className="flex-1 rounded-xl bg-blue-100 px-3 py-2.5 text-sm font-medium text-blue-900 transition hover:bg-blue-200"
+                      >
+                        Show Children
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handleParentArrived(item.id)}
+                          className="flex-1 rounded-xl bg-amber-100 px-3 py-2.5 text-sm font-medium text-amber-900 transition hover:bg-amber-200"
+                        >
+                          Parent Arrived
+                        </button>
+                        <button
+                          onClick={() => handleDismissed(item.id)}
+                          className="flex-1 rounded-xl bg-emerald-100 px-3 py-2.5 text-sm font-medium text-emerald-900 transition hover:bg-emerald-200"
+                        >
+                          Dismissed
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               ))
@@ -253,14 +301,64 @@ export function GroundOpsQueue() {
 
       {/* Parent Pickup Modal */}
       {selectedParentModal && (
-        <ParentPickupCard
-          parentId={selectedParentModal.parent.id}
-          parentName={selectedParentModal.parent.parentName}
-          phone={selectedParentModal.parent.phone}
-          children={selectedParentModal.children}
-          onDismiss={() => setSelectedParentModal(null)}
-          onRefresh={handleRefreshQueue}
-        />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            {/* Header */}
+            <div className="mb-6 flex items-start justify-between">
+              <div>
+                <h3 className="text-2xl font-bold text-foreground">{selectedParentModal.parent.parentName}</h3>
+                {selectedParentModal.parent.phone && (
+                  <p className="mt-1 text-sm text-muted-foreground">{selectedParentModal.parent.phone}</p>
+                )}
+              </div>
+              <button
+                onClick={() => setSelectedParentModal(null)}
+                className="text-muted-foreground transition hover:text-foreground"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+
+            {/* Children List */}
+            <div className="mb-6 space-y-3 max-h-64 overflow-y-auto">
+              <p className="text-sm font-semibold text-foreground">Select children to pick up:</p>
+              {selectedParentModal.children.map((child) => (
+                <label key={child.studentId} className="flex items-center gap-3 cursor-pointer rounded-lg border border-border p-3 hover:bg-muted/50 transition">
+                  <input
+                    type="checkbox"
+                    checked={selectedChildren.has(child.studentId)}
+                    onChange={() => handleToggleChild(child.studentId)}
+                    className="size-4 rounded border-border"
+                  />
+                  <div className="flex-1">
+                    <p className="font-medium text-foreground">{child.studentName}</p>
+                    <p className="text-xs text-muted-foreground">{child.class} | {child.block}</p>
+                  </div>
+                  <span className={`text-xs px-2 py-1 rounded ${child.status === 'waiting' ? 'bg-amber-100 text-amber-900' : 'bg-emerald-100 text-emerald-900'}`}>
+                    {child.status}
+                  </span>
+                </label>
+              ))}
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setSelectedParentModal(null)}
+                className="flex-1 rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-foreground transition hover:bg-muted"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCompleteDismissal}
+                disabled={selectedChildren.size === 0}
+                className="flex-1 rounded-lg bg-emerald-100 px-4 py-2.5 text-sm font-medium text-emerald-900 transition hover:bg-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Dismiss {selectedChildren.size > 0 ? `(${selectedChildren.size})` : ''}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

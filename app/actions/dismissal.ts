@@ -248,14 +248,44 @@ export async function scanNfcAtGate(
     // Check if this is a parent NFC code first
     const parent = await getParentByNfcCode(trimmed)
     if (parent) {
-      // Parent scanned - show multi-child pickup screen
+      // Parent scanned - create a parent record in dismissals for queue display
+      const result = await updateLocalDb(async (state) => {
+        const nowIso = new Date().toISOString()
+        
+        // Create parent record for queue display
+        const parentDismissal = {
+          id: nextId(state.dismissals),
+          studentId: `parent_${parent.id}`,
+          studentName: parent.parentName,
+          class: 'Parent',
+          block: 'Multi-Child',
+          parentName: parent.parentName,
+          parentPhone: parent.phone || '',
+          pickupMethod: 'parent' as const,
+          nfcScanTime: nowIso,
+          gateScanTime: nowIso,
+          groundOpsTime: null,
+          finalDismissalTime: null,
+          status: 'at_gate',
+          notes: null,
+          userId: 'admin-user-final',
+          dispersalSessionId: null,
+          dispersalGroupId: null,
+          pickedUpAt: null,
+          nfcCode: trimmed,
+          createdAt: nowIso,
+        }
+        state.dismissals.push(parentDismissal)
+        return parentDismissal
+      })
+
       return {
         ok: true,
         event: 'parent_arrived' as const,
         studentName: parent.parentName,
         class: 'Parent',
-        block: 'Multi-Child Pickup',
-        status: 'parent_scanned',
+        block: 'Multi-Child',
+        status: 'at_gate',
       }
     }
 

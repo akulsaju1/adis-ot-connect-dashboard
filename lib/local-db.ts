@@ -57,6 +57,7 @@ export interface LocalDismissal {
   dispersalSessionId: string | null
   dispersalGroupId: string | null
   pickedUpAt: string | null
+  nfcCode?: string
   createdAt: string
 }
 
