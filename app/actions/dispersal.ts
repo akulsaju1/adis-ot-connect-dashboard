@@ -49,7 +49,7 @@ export async function startDispersalSession(
         return {
           ok: false,
           error: `Dispersal session already active for ${groupId}`,
-        }
+        } as DispersalResult
       }
 
       const session: DispersalSession = {
@@ -62,10 +62,17 @@ export async function startDispersalSession(
       }
 
       state.dispersalSessions.push(session)
-      return { ok: true, sessionId: session.id }
+      return { ok: true, message: `Dispersal started for ${groupId}`, sessionId: session.id } as DispersalResult
     })
 
-    return result as DispersalResult
+    if (result && typeof result === 'object' && 'ok' in result) {
+      return result as DispersalResult
+    }
+
+    return {
+      ok: false,
+      error: 'Failed to start dispersal session',
+    }
   } catch (error: any) {
     console.log('[v0] startDispersalSession error:', error?.message)
     return {
@@ -87,21 +94,28 @@ export async function endDispersalSession(sessionId: string): Promise<DispersalR
         return {
           ok: false,
           error: 'Session not found',
-        }
+        } as DispersalResult
       }
 
       if (session.endedAt) {
         return {
           ok: false,
           error: 'Session already ended',
-        }
+        } as DispersalResult
       }
 
       session.endedAt = new Date().toISOString()
-      return { ok: true }
+      return { ok: true, message: 'Dispersal session ended' } as DispersalResult
     })
 
-    return result as DispersalResult
+    if (result && typeof result === 'object' && 'ok' in result) {
+      return result as DispersalResult
+    }
+
+    return {
+      ok: false,
+      error: 'Failed to end dispersal session',
+    }
   } catch (error: any) {
     console.log('[v0] endDispersalSession error:', error?.message)
     return {
@@ -192,10 +206,17 @@ export async function pickupStudentInSession(
         ok: true,
         pickupId: pickupLogId,
         message: `${tag.studentName} (${tag.class}) picked up successfully.`,
-      }
+      } as DispersalResult
     })
 
-    return result as DispersalResult
+    if (result && typeof result === 'object' && 'ok' in result) {
+      return result as DispersalResult
+    }
+
+    return {
+      ok: false,
+      error: 'Failed to process pickup',
+    }
   } catch (error: any) {
     console.log('[v0] pickupStudentInSession error:', error?.message)
     return {
@@ -231,10 +252,17 @@ export async function undoPickup(pickupLogId: string, sessionId: string): Promis
       return {
         ok: true,
         message: `Pickup for ${pickupLog.studentName} has been removed.`,
-      }
+      } as DispersalResult
     })
 
-    return result as DispersalResult
+    if (result && typeof result === 'object' && 'ok' in result) {
+      return result as DispersalResult
+    }
+
+    return {
+      ok: false,
+      error: 'Failed to remove pickup',
+    }
   } catch (error: any) {
     console.log('[v0] undoPickup error:', error?.message)
     return {
