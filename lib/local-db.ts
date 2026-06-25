@@ -101,6 +101,36 @@ export interface LocalStaffMember {
   createdAt: string
 }
 
+export interface StudentPhoto {
+  id: number
+  studentId: string
+  photoData: string // base64 encoded image
+  uploadedAt: string
+}
+
+export interface StudentChild {
+  id: number
+  parentId: number
+  studentId: string
+  studentName: string
+  class: string
+  block: string
+  nfcCode: string
+  photoId: number | null // reference to StudentPhoto
+  isActive: boolean
+  createdAt: string
+}
+
+export interface LocalParent {
+  id: number
+  nfcCode: string
+  parentName: string
+  phone: string | null
+  email: string | null
+  pickedUpAt: string | null
+  createdAt: string
+}
+
 export interface LocalDbState {
   admin: LocalAdmin[]
   nfcTags: LocalNfcTag[]
@@ -108,6 +138,9 @@ export interface LocalDbState {
   staffDirectory: LocalStaffMember[]
   dispersalSessions: DispersalSession[]
   pickupLogs: PickupLog[]
+  parents: LocalParent[]
+  studentChildren: StudentChild[]
+  studentPhotos: StudentPhoto[]
 }
 
 const emptyState = (): LocalDbState => ({
@@ -117,6 +150,9 @@ const emptyState = (): LocalDbState => ({
   staffDirectory: [],
   dispersalSessions: [],
   pickupLogs: [],
+  parents: [],
+  studentChildren: [],
+  studentPhotos: [],
 })
 
 let lock = Promise.resolve()
@@ -198,6 +234,9 @@ async function loadState(): Promise<LocalDbState> {
       })),
       dispersalSessions: parsed.dispersalSessions || [],
       pickupLogs: parsed.pickupLogs || [],
+      parents: parsed.parents || [],
+      studentChildren: parsed.studentChildren || [],
+      studentPhotos: parsed.studentPhotos || [],
     }
 
     return state
@@ -264,6 +303,187 @@ export async function getAdminById(id: number) {
 
 export async function ensureDefaultAdminAccount() {
   await updateLocalDb(async () => undefined)
+}
+
+// Parent operations
+export async function registerParent(
+  nfcCode: string,
+  parentName: string,
+  phone?: string | null,
+  email?: string | null
+) {
+  const result = await updateLocalDb(async (state) => {
+    const existing = state.parents.find((p) => p.nfcCode === nfcCode)
+    if (existing) {
+      throw new Error('Parent NFC code already registered')
+    }
+
+    const created = {
+      id: nextId(state.parents),
+      nfcCode,
+      parentName,
+      phone: phone || null,
+      email: email || null,
+      pickedUpAt: null,
+      createdAt: new Date().toISOString(),
+    }
+
+    state.parents.push(created)
+    return created
+  })
+  return result
+}
+
+export async function getParentByNfcCode(nfcCode: string) {
+  const state = await readLocalDb()
+  return state.parents.find((p) => p.nfcCode === nfcCode) || null
+}
+
+export async function getAllParents() {
+  const state = await readLocalDb()
+  return sortByCreatedAtDesc(state.parents)
+}
+
+// Student Photo operations
+export async function uploadStudentPhoto(studentId: string, photoData: string) {
+  const result = await updateLocalDb(async (state) => {
+    // Remove old photo if exists
+    const existingPhotoIdx = state.studentPhotos.findIndex(
+      (p) => p.studentId === studentId
+    )
+    if (existingPhotoIdx !== -1) {
+      state.studentPhotos.splice(existingPhotoIdx, 1)
+    }
+
+    const created = {
+      id: nextId(state.studentPhotos),
+      studentId,
+      photoData,
+      uploadedAt: new Date().toISOString(),
+    }
+
+    state.studentPhotos.push(created)
+    return created
+  })
+  return result
+}
+
+export async function getStudentPhoto(studentId: string) {
+  const state = await readLocalDb()
+  return state.studentPhotos.find((p) => p.studentId === studentId) || null
+}
+
+// Student Child operations
+export async function addStudentToParent(
+  parentId: number,
+  studentId: string,
+  studentName: string,
+  class_: string,
+  block: string,
+  nfcCode: string,
+  photoId?: number | null
+) {
+  const result = await updateLocalDb(async (state) => {
+    const existing = state.studentChildren.find(
+      (c) => c.parentId === parentId && c.studentId === studentId
+    )
+    if (existing) {
+      throw new Error('Student already linked to this parent')
+    }
+
+    const created = {
+      id: nextId(state.studentChildren),
+      parentId,
+      studentId,
+      studentName,
+      class: class_,
+      block,
+      nfcCode,
+      photoId: photoId || null,
+      isActive: true,
+      createdAt: new Date().toISOString(),
+    }
+
+    state.studentChildren.push(created)
+    return created
+  })
+  return result
+}
+
+export async function getChildrenByParentId(parentId: number) {
+  const state = await readLocalDb()
+  return state.studentChildren.filter(
+    (c) => c.parentId === parentId && c.isActive
+  )
+}
+
+export async function getChildrenAwaitingPickup(parentId: number) {
+  const state = await readLocalDb()
+  // Get children linked to this parent with status 'waiting'
+  const children = state.studentChildren.filter(
+    (c) => c.parentId === parentId && c.isActive
+  )
+
+  const withStatus = children.map((child) => {
+    const dismissal = state.dismissals.find((d) => d.studentId === child.studentId)
+    return {
+      ...child,
+      status: dismissal?.status || 'not_registered',
+      dismissalId: dismissal?.id || null,
+    }
+  })
+
+  return withStatus
+}
+
+export async function unlinkStudentFromParent(
+  parentId: number,
+  studentId: string
+) {
+  const result = await updateLocalDb(async (state) => {
+    const child = state.studentChildren.find(
+      (c) => c.parentId === parentId && c.studentId === studentId
+    )
+
+    if (!child) {
+      throw new Error('Student not linked to this parent')
+    }
+
+    child.isActive = false
+    return child
+  })
+  return result
+}
+
+export async function performMultiChildDismissal(
+  parentId: number,
+  selectedStudentIds: string[]
+) {
+  const result = await updateLocalDb(async (state) => {
+    const nowIso = new Date().toISOString()
+    const dismissed = []
+
+    for (const studentId of selectedStudentIds) {
+      const dismissal = state.dismissals.find((d) => d.studentId === studentId)
+
+      if (dismissal) {
+        dismissal.groundOpsTime = nowIso
+        dismissal.finalDismissalTime = nowIso
+        dismissal.status = 'completed'
+        dismissal.pickedUpAt = nowIso
+        dismissed.push(dismissal)
+      }
+    }
+
+    // Update parent pickup time
+    const parent = state.parents.find((p) => p.id === parentId)
+    if (parent) {
+      parent.pickedUpAt = nowIso
+    }
+
+    return dismissed
+  })
+  return result
 }
 
 export { DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_USERNAME, nextId, sortByCreatedAtDesc }

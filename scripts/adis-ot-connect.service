@@ -1,0 +1,36 @@
+[Unit]
+Description=ADIS OT Connect Dashboard - School Management System
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/adis-ot-connect-dashboard
+
+# Environment variables
+Environment="NODE_ENV=production"
+Environment="PORT=3000"
+Environment="LOCAL_DB_DIR=/home/pi/adis-ot-data/.data"
+
+# Use the correct node path (update if using different version)
+ExecStart=/home/pi/.nvm/versions/node/v20.10.0/bin/pnpm start
+
+# Auto-restart on failure
+Restart=always
+RestartSec=10
+
+# Timeout for startup (Pi needs time)
+TimeoutStartSec=30
+
+# Process management
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=adis-ot-connect
+
+# Resource limits (optimized for Pi 4)
+MemoryLimit=512M
+CPUQuota=80%
+
+[Install]
+WantedBy=multi-user.target

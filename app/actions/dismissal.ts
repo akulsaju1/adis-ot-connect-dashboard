@@ -4,6 +4,8 @@ import {
   readLocalDb,
   sortByCreatedAtDesc,
   updateLocalDb,
+  getParentByNfcCode,
+  getChildrenAwaitingPickup,
   type LocalDismissal,
 } from '@/lib/local-db'
 import { getStaffSession } from './staff-auth'
@@ -241,6 +243,20 @@ export async function scanNfcAtGate(
     const trimmed = (nfcCode || '').trim()
     if (!trimmed) {
       return { ok: false, error: 'No NFC code was provided.' }
+    }
+
+    // Check if this is a parent NFC code first
+    const parent = await getParentByNfcCode(trimmed)
+    if (parent) {
+      // Parent scanned - show multi-child pickup screen
+      return {
+        ok: true,
+        event: 'parent_arrived' as const,
+        studentName: parent.parentName,
+        class: 'Parent',
+        block: 'Multi-Child Pickup',
+        status: 'parent_scanned',
+      }
     }
 
     const tag = await getNfcTag(trimmed)

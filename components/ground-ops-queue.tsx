@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { getDismissalsByStatus, updateDismissalStatus } from '@/app/actions/dismissal'
+import { getParentInfo } from '@/app/actions/parent'
+import { ParentPickupCard } from './parent-pickup-card'
 import { CheckCircle2, Clock, Users, Filter, ClipboardList } from 'lucide-react'
 
 interface Dismissal {
@@ -16,11 +18,18 @@ interface Dismissal {
   groundOpsTime: Date | null
 }
 
+interface ParentData {
+  parent: { id: number; parentName: string; phone: string | null }
+  children: Array<any>
+}
+
 export function GroundOpsQueue() {
   const [queue, setQueue] = useState<Dismissal[]>([])
   const [completed, setCompleted] = useState<Dismissal[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null)
+  const [selectedParentModal, setSelectedParentModal] = useState<ParentData | null>(null)
+  const [viewMode, setViewMode] = useState<'students' | 'parents'>('students')
 
   const BLOCKS = ['KG', 'Girls Block', 'Boys Block']
 
@@ -92,6 +101,27 @@ export function GroundOpsQueue() {
     } catch (error) {
       console.error('Failed to update:', error)
     }
+  }
+
+  const handleParentCardOpen = async (nfcCode: string, parentName: string) => {
+    try {
+      const parentInfo = await getParentInfo(nfcCode)
+      if (parentInfo) {
+        setSelectedParentModal(parentInfo)
+      }
+    } catch (error) {
+      console.error('Failed to get parent info:', error)
+      alert('Failed to load parent information')
+    }
+  }
+
+  const handleRefreshQueue = async () => {
+    const [q, c] = await Promise.all([
+      getDismissalsByStatus('at_gate'),
+      getDismissalsByStatus('completed'),
+    ])
+    setQueue((q as Dismissal[]) || [])
+    setCompleted((c as Dismissal[]) || [])
   }
 
   return (
@@ -168,6 +198,9 @@ export function GroundOpsQueue() {
                     <div>
                       <p className="text-lg font-semibold text-foreground">{item.studentName}</p>
                       <p className="text-sm text-muted-foreground">{item.class} | {item.block}</p>
+                      {item.parentName && (
+                        <p className="mt-1 text-xs text-muted-foreground">Parent: {item.parentName}</p>
+                      )}
                     </div>
                     <span className={`rounded-full px-3 py-1 text-xs font-medium ${item.pickupMethod === 'walk' ? 'bg-emerald-100 text-emerald-900' : 'bg-amber-100 text-amber-900'}`}>
                       {item.pickupMethod.charAt(0).toUpperCase() + item.pickupMethod.slice(1)}
@@ -217,6 +250,18 @@ export function GroundOpsQueue() {
           </div>
         </div>
       </div>
+
+      {/* Parent Pickup Modal */}
+      {selectedParentModal && (
+        <ParentPickupCard
+          parentId={selectedParentModal.parent.id}
+          parentName={selectedParentModal.parent.parentName}
+          phone={selectedParentModal.parent.phone}
+          children={selectedParentModal.children}
+          onDismiss={() => setSelectedParentModal(null)}
+          onRefresh={handleRefreshQueue}
+        />
+      )}
     </div>
   )
 }
