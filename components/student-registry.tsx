@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { getAllDismissals, registerNfcTag, regenerateNfcCode, bulkRegisterStudents } from '@/app/actions/dismissal'
 import { parseCSV, generateCSV, downloadCSV } from '@/lib/csv-utils'
-import { Upload, Download, FileText, Users, BadgeInfo } from 'lucide-react'
+import { Upload, Download, FileText, Users, BadgeInfo, CheckCircle, X } from 'lucide-react'
 
 interface Student {
   id: number
@@ -29,6 +29,10 @@ export function StudentRegistry() {
   })
   const [newNfcCode, setNewNfcCode] = useState('')
   const [importing, setImporting] = useState(false)
+  const [notification, setNotification] = useState<{ show: boolean; message: string; studentName?: string }>({
+    show: false,
+    message: '',
+  })
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const BLOCKS = ['KG', 'Girls Block', 'Boys Block']
@@ -94,7 +98,20 @@ export function StudentRegistry() {
       const studentId = `STU-${Date.now()}`
       await registerNfcTag(newStudent.nfcCode, studentId, newStudent.name, newStudent.class, newStudent.block)
       
+      const studentNameToShow = newStudent.name
       setNewStudent({ name: '', class: '', block: 'Boys Block', nfcCode: '' })
+      
+      // Show success notification
+      setNotification({
+        show: true,
+        message: 'Student Imported',
+        studentName: studentNameToShow,
+      })
+      
+      // Auto-hide notification after 4 seconds
+      setTimeout(() => {
+        setNotification({ show: false, message: '' })
+      }, 4000)
       
       // Reload students
       const dismissals = await getAllDismissals()
@@ -191,11 +208,21 @@ export function StudentRegistry() {
       const result = await bulkRegisterStudents(studentsToImport)
       await refreshStudents()
 
-      let message = `Imported ${result.imported} student(s). Skipped ${result.skipped}.`
+      // Show import notification
+      setNotification({
+        show: true,
+        message: `${result.imported} student(s) imported. ${result.skipped} skipped.`,
+      })
+      
+      // Auto-hide notification after 4 seconds
+      setTimeout(() => {
+        setNotification({ show: false, message: '' })
+      }, 4000)
+
       if (result.errors.length > 0) {
-        message += `\n\nErrors:\n${result.errors.slice(0, 5).join('\n')}`
+        const errorMessage = `Some errors occurred:\n${result.errors.slice(0, 5).join('\n')}`
+        alert(errorMessage)
       }
-      alert(message)
     } catch (error) {
       console.error('Failed to import CSV:', error)
       alert('Failed to import CSV file. Please check the format.')
@@ -207,6 +234,25 @@ export function StudentRegistry() {
 
   return (
     <div className="flex-1 overflow-auto p-6 sm:p-8 space-y-6 lg:space-y-8">
+      {/* Success Notification */}
+      {notification.show && (
+        <div className="fixed inset-x-4 top-4 z-50 flex items-start gap-3 rounded-xl border border-green-500/30 bg-green-50 p-4 shadow-lg sm:inset-x-auto sm:right-4 sm:max-w-sm dark:bg-green-950/30 dark:border-green-500/50">
+          <CheckCircle className="h-5 w-5 shrink-0 text-green-600 dark:text-green-400" />
+          <div className="flex-1">
+            <p className="font-semibold text-green-900 dark:text-green-100">{notification.message}</p>
+            {notification.studentName && (
+              <p className="mt-1 text-sm text-green-800 dark:text-green-200">{notification.studentName}</p>
+            )}
+          </div>
+          <button
+            onClick={() => setNotification({ show: false, message: '' })}
+            className="shrink-0 text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       <div className="rounded-[2rem] border border-border/60 bg-card/80 p-6 shadow-sm backdrop-blur">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
