@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { loginAdmin } from '@/app/actions/auth'
 import { Button } from '@/components/ui/button'
-import { ShieldCheck, ArrowRight } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 
 export default function LoginPage() {
   const [username, setUsername] = useState('')
@@ -39,18 +39,12 @@ export default function LoginPage() {
         <section className="hidden lg:flex flex-col justify-between bg-slate-950 p-10 text-white">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.28em] text-white/70">
-              <ShieldCheck className="h-4 w-4" /> Secure admin access
+              ADIS AL WATHBA
             </div>
-            <h1 className="mt-6 text-4xl font-semibold leading-tight text-balance">ADIS OT-Connect</h1>
+            <h1 className="mt-6 text-4xl font-semibold leading-tight text-balance">OT-Connect</h1>
             <p className="mt-4 max-w-md text-sm leading-6 text-slate-300">
               Professional dismissal management for a faster, clearer, and safer campus workflow.
             </p>
-          </div>
-
-          <div className="grid gap-3 rounded-3xl border border-white/10 bg-white/5 p-5 text-sm text-slate-200">
-            <p>• Real-time student movement visibility</p>
-            <p>• NFC-based gate and queue tracking</p>
-            <p>• Role-aware coordination for campus staff</p>
           </div>
         </section>
 
@@ -109,10 +103,6 @@ export default function LoginPage() {
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </form>
-
-          <p className="mt-8 text-center text-sm text-muted-foreground">
-            Use admin / Adis@2025 or admin@adis.ae / Adis@2025
-          </p>
         </section>
         </div>
     </main>
